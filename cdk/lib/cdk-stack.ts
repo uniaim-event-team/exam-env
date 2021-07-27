@@ -44,7 +44,7 @@ export class CdkStack extends cdk.Stack {
     // step server
     // note: need to add `${props.prefix}-step`.pem by aws console.
     const keyName = `${props.prefix}-step`
-    const sgStep = new ec2.SecurityGroup(this, 'sg-step', {
+    const sgStep = new ec2.SecurityGroup(this, `${props.prefix}-sg-step`, {
       vpc: this.vpc
     })
     sgStep.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(22))
