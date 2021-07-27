@@ -48,10 +48,10 @@ export class ApplicationStack extends cdk.Stack {
     let httpsListener: ApplicationListener | null = null
 
     // privateSubnetは偶奇で変更する
-    const targetInstanceList = []
     let priority = 0;
     for (const subDomain of props.subDomains) {
       priority += 1
+      const targetInstanceList = []
       const keyName = `${props.prefix}-${subDomain}`
       for (let i = 0; i < props.instanceCount; i++) {
         const appInstance = new ec2.CfnInstance(this, `${props.prefix}-${subDomain}-${i}`, {
