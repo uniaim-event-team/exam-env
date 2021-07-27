@@ -3,6 +3,7 @@ import * as acm from "@aws-cdk/aws-certificatemanager";
 import * as ec2 from '@aws-cdk/aws-ec2';
 import * as elbv2 from '@aws-cdk/aws-elasticloadbalancingv2';
 import * as route53 from '@aws-cdk/aws-route53';
+import * as targets from "@aws-cdk/aws-route53-targets";
 
 import {Vpc} from "@aws-cdk/aws-ec2";
 import {ApplicationListener} from "@aws-cdk/aws-elasticloadbalancingv2";
@@ -118,6 +119,12 @@ export class ApplicationStack extends cdk.Stack {
           targetGroups: [targetGroup]
         })
       }
+      new route53.RecordSet(this, `${props.prefix}-${subDomain}-record-set`, {
+        recordName: subDomain,
+        recordType: route53.RecordType.A,
+        target: route53.RecordTarget.fromAlias(new targets.LoadBalancerTarget(lb)),
+        zone: props.hostedZone
+      })
     }
   }
 }
