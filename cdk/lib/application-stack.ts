@@ -1,12 +1,14 @@
 import * as cdk from '@aws-cdk/core';
 import * as acm from "@aws-cdk/aws-certificatemanager";
 import * as ec2 from '@aws-cdk/aws-ec2';
+import {Vpc} from '@aws-cdk/aws-ec2';
 import * as elbv2 from '@aws-cdk/aws-elasticloadbalancingv2';
+import {ApplicationListener} from '@aws-cdk/aws-elasticloadbalancingv2';
 import * as route53 from '@aws-cdk/aws-route53';
 import * as targets from "@aws-cdk/aws-route53-targets";
-
-import {Vpc} from "@aws-cdk/aws-ec2";
-import {ApplicationListener} from "@aws-cdk/aws-elasticloadbalancingv2";
+import * as iam from '@aws-cdk/aws-iam';
+import * as secretsmanager from '@aws-cdk/aws-secretsmanager';
+import {Effect} from '@aws-cdk/aws-iam';
 
 export interface ApplicationStackProps extends cdk.StackProps {
   prefix: string
@@ -65,7 +67,7 @@ export class ApplicationStack extends cdk.Stack {
           keyName
         })
         appInstance.tags.setTag('Name', `${props.prefix}-${subDomain}-${i}`)
-        targetInstanceList.push(new elbv2.InstanceTarget(appInstance.ref))
+        targetInstanceList.push(appInstance.ref)
       }
       // 外部からアクセスするのは最初の一件だけ
       const targetGroup = new elbv2.ApplicationTargetGroup(this, `${props.prefix}-${subDomain}-target-group`, {
@@ -81,7 +83,7 @@ export class ApplicationStack extends cdk.Stack {
         protocol: elbv2.ApplicationProtocol.HTTP,
         targetGroupName: `${props.prefix}-${subDomain}-tg`,
         vpc: props.vpc,
-        targets: [targetInstanceList[0]]
+        targets: [new elbv2.InstanceTarget(targetInstanceList[0])]
       });
       if (priority === 1) {
         httpListener = lb.addListener(`${props.prefix}-http`, {
@@ -124,6 +126,41 @@ export class ApplicationStack extends cdk.Stack {
         recordType: route53.RecordType.A,
         target: route53.RecordTarget.fromAlias(new targets.LoadBalancerTarget(lb)),
         zone: props.hostedZone
+      })
+      // IAM
+      const policy = new iam.Policy(this, `${props.prefix}-${subDomain}-policy`, {
+        statements: [
+          new iam.PolicyStatement({
+            actions: ['ec2:DescribeInstances'],
+            resources: ['*'],
+            effect: Effect.ALLOW
+          }),
+          new iam.PolicyStatement({
+            actions: ['ec2:StartInstances', 'ec2:StopInstances'],
+            resources: targetInstanceList.map(instanceId => 'arn:aws:ec2:*:*:instance/' + instanceId),
+            effect: Effect.ALLOW
+          })
+        ]
+      })
+      const user = new iam.User(this, `${props.prefix}-${subDomain}-user`, {
+        userName: `${props.prefix}-${subDomain}-user`
+      })
+      policy.attachToUser(user)
+      // access_key
+      const userKey = new iam.CfnAccessKey(this, `${props.prefix}-${subDomain}-user-key`, {
+        userName: user.userName
+      })
+      new secretsmanager.Secret(this, `${props.prefix}-${subDomain}-secret-key`, {
+        secretName: `${props.prefix}-${subDomain}-secret-key`,
+        description: `${props.prefix}-${subDomain}-secret-key`,
+        generateSecretString: {
+          secretStringTemplate: JSON.stringify({
+            access_key_id: userKey.ref,
+            secret_access_key: userKey.attrSecretAccessKey
+          }),
+          // generateStringKeyは不要だがエラーになるのでいれる
+          generateStringKey: 'password'
+        }
       })
     }
   }
