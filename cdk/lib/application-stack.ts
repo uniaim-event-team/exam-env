@@ -14,6 +14,7 @@ export interface ApplicationStackProps extends cdk.StackProps {
   prefix: string
   domain: string
   subDomains: string[]
+  tempPriority: number
   instanceCount: number
   useCert: boolean
   vpc: Vpc
@@ -50,7 +51,7 @@ export class ApplicationStack extends cdk.Stack {
     let httpsListener: ApplicationListener | null = null
 
     // privateSubnetは偶奇で変更する
-    let priority = 0;
+    let priority = props.tempPriority;
     for (const subDomain of props.subDomains) {
       priority += 1
       const targetInstanceList = []
@@ -85,7 +86,7 @@ export class ApplicationStack extends cdk.Stack {
         vpc: props.vpc,
         targets: [new elbv2.InstanceTarget(targetInstanceList[0])]
       });
-      if (priority === 1) {
+      if (priority === props.tempPriority + 1) {
         httpListener = lb.addListener(`${props.prefix}-http`, {
           port: 80,
           defaultTargetGroups: [targetGroup],
