@@ -59,10 +59,11 @@ export class ApplicationStack extends cdk.Stack {
       for (let i = 0; i < props.instanceCount; i++) {
         const appInstance = new ec2.CfnInstance(this, `${props.prefix}-${subDomain}-${i}`, {
           instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO).toString(),
-          imageId: new ec2.AmazonLinuxImage({
-            generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2,
-            cpuType: ec2.AmazonLinuxCpuType.ARM_64
-          }).getImage(this).imageId,
+          // imageId: new ec2.AmazonLinuxImage({
+          //   generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2,
+          //   cpuType: ec2.AmazonLinuxCpuType.ARM_64
+          // }).getImage(this).imageId,
+          imageId: 'ami-05fdb9a326f43ce51',
           subnetId: props.vpc.privateSubnets[i % 2].subnetId,
           securityGroupIds: [sgApp.securityGroupId],
           keyName
