@@ -55,21 +55,29 @@ export class ApplicationStack extends cdk.Stack {
     for (const subDomain of props.subDomains) {
       priority += 1
       const targetInstanceList = []
-      const keyName = `${props.prefix}-${subDomain}`
+      const keyName = `td-${subDomain}`
       for (let i = 0; i < props.instanceCount; i++) {
-        const appInstance = new ec2.CfnInstance(this, `${props.prefix}-${subDomain}-${i}`, {
-          instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO).toString(),
-          // imageId: new ec2.AmazonLinuxImage({
-          //   generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2,
-          //   cpuType: ec2.AmazonLinuxCpuType.ARM_64
-          // }).getImage(this).imageId,
-          imageId: 'ami-05fdb9a326f43ce51',
-          subnetId: props.vpc.privateSubnets[i % 2].subnetId,
-          securityGroupIds: [sgApp.securityGroupId],
-          keyName
-        })
-        appInstance.tags.setTag('Name', `${props.prefix}-${subDomain}-${i}`)
-        targetInstanceList.push(appInstance.ref)
+        if (priority <= 16) {
+          const appInstance = new ec2.CfnInstance(this, `${props.prefix}-${subDomain}-${i}`, {
+            instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO).toString(),
+            imageId: 'ami-0cb7184b83104558b',
+            subnetId: props.vpc.privateSubnets[i % 2].subnetId,
+            securityGroupIds: [sgApp.securityGroupId],
+            keyName
+          })
+          appInstance.tags.setTag('Name', `${props.prefix}-${subDomain}-${i}`)
+          targetInstanceList.push(appInstance.ref)
+        } else {
+          const appInstance = new ec2.CfnInstance(this, `${props.prefix}-${subDomain}-${i}`, {
+            instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO).toString(),
+            imageId: 'ami-0f8f565aff0af885b',  // Amazon Linux 2023 AMI 2023.12.20260629.0 ARM HVM kernel-6.18
+            subnetId: props.vpc.privateSubnets[i % 2].subnetId,
+            securityGroupIds: [sgApp.securityGroupId],
+            keyName
+          })
+          appInstance.tags.setTag('Name', `${props.prefix}-${subDomain}-${i}`)
+          targetInstanceList.push(appInstance.ref)
+        }
       }
       // 外部からアクセスするのは最初の一件だけ
       const targetGroup = new elbv2.ApplicationTargetGroup(this, `${props.prefix}-${subDomain}-target-group`, {
@@ -94,10 +102,10 @@ export class ApplicationStack extends cdk.Stack {
           open: true
         });
         if (props.useCert) {
-          const certificate = new acm.DnsValidatedCertificate(this, `${props.prefix}-site-cert`, {
+          const certificate = new acm.Certificate(this, `${props.prefix}-site-cert`, {
             domainName: domainName,
             subjectAlternativeNames: ['*.' + domainName],
-            hostedZone: props.hostedZone
+            validation: acm.CertificateValidation.fromDns(props.hostedZone)
           });
           httpsListener = lb.addListener(`${props.prefix}-https`, {
             port: 443,
